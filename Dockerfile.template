@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1.4
+
+# 🔧 This ARG is replaced dynamically by the bootstrap script
+ARG TERRAFORM_VERSION={{TERRAFORM_VERSION}}
+FROM hashicorp/terraform:${TERRAFORM_VERSION}
+
+# 🏷 Metadata
+LABEL org.opencontainers.image.version="${TERRAFORM_VERSION}" \
+      org.opencontainers.image.title="terraform-abzaar" \
+      org.opencontainers.image.description="Containerized Terraform CLI + AWS CLI, TFLint, terraform-docs for DevOps engineers" \
+      org.opencontainers.image.source="https://github.com/abzaarak/terraform-abzaar" \
+      org.opencontainers.image.licenses="MIT"
+
+ENV PATH="/usr/local/bin:$PATH"
+
+# 🔧 Install CLI tools and utilities
+RUN echo "🔹 Installing required tools for Terraform ${TERRAFORM_VERSION}..." && \
+    # Extract major.minor (e.g. "1.4") and major (e.g. "1")
+    TF_SHORT_VERSION=$(echo "${TERRAFORM_VERSION}" | cut -d. -f1,2) && \
+    TF_MAJOR_VERSION=$(echo "${TERRAFORM_VERSION}" | cut -d. -f1) && \
+    echo "🌐 Terraform version detected: ${TF_SHORT_VERSION} (major: ${TF_MAJOR_VERSION})" && \
+
+    # 📦 Install Alpine packages
+    apk add --no-cache \
+      wget \
+      unzip \
+      git \
+      ca-certificates \
+      python3 \
+      py3-pip && \
+    echo "✅ Base packages installed" && \
+
+    # 🪣 Install AWS CLI (v1 for old Terraform, v2 for modern)
+    echo "🔹 Installing AWS CLI..." && \
+    case "$TF_SHORT_VERSION" in \
+      0.13|0.14) \
+        pip3 install --no-cache-dir awscli==1.31.13 ;; \
+      *) \
+        wget -q "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -O awscliv2.zip && \
+        unzip awscliv2.zip > /dev/null && \
+        ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
+        rm -rf aws awscliv2.zip ;; \
+    esac && \
+    echo "✅ AWS CLI installed" && \
+
+    # 🧪 Install TFLint
+    echo "🔹 Installing TFLint..." && \
+    wget -q https://github.com/terraform-linters/tflint/releases/download/v0.50.3/tflint_linux_amd64.zip && \
+    unzip tflint_linux_amd64.zip -d /usr/local/bin && \
+    rm tflint_linux_amd64.zip && \
+    echo "✅ TFLint installed" && \
+
+    # 📚 Install terraform-docs
+    echo "🔹 Installing terraform-docs..." && \
+    wget -q https://github.com/terraform-docs/terraform-docs/releases/download/v0.16.0/terraform-docs-v0.16.0-linux-amd64.tar.gz && \
+    tar -xzf terraform-docs-v0.16.0-linux-amd64.tar.gz -C /usr/local/bin > /dev/null && \
+    rm terraform-docs-v0.16.0-linux-amd64.tar.gz && \
+    echo "✅ terraform-docs installed" && \
+
+    # 🧼 Clean up to reduce image size
+    echo "🧼 Cleaning up..." && \
+    rm -rf /var/cache/apk/* /tmp/* /var/tmp/*
+
+# ⬇️ Default command
+CMD ["terraform"]

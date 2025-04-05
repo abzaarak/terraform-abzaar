@@ -1,0 +1,16 @@
+# Ignore editor/system files
+.DS_Store
+*.swp
+*.tmp
+
+# Ignore build artifacts
+build.log
+build-metrics.csv
+
+# Node/Terraform cache (optional if you expand usage)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Secrets or local overrides
+.env
